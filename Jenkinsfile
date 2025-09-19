@@ -13,36 +13,38 @@ pipeline {
       }
     }
 
-  stage('Deploy') {
-    steps {
-      sh '''
-        rm -rf "$DEST" && mkdir -p "$DEST"
-        # équivalent de: cp -r * /destination/
-        # mais on exclut le Jenkinsfile et le dossier site pour éviter la récursion
-        find . -maxdepth 1 -mindepth 1 \
-          -not -name 'Jenkinsfile' \
-          -not -name 'site' \
-          -exec cp -r -t "$DEST" {} +
-      '''
+    stage('Deploy') {
+      steps {
+        sh '''
+          rm -rf "$DEST" && mkdir -p "$DEST"
+          # équivalent de: cp -r * /destination/ (en évitant la récursion)
+          find . -maxdepth 1 -mindepth 1 \
+            -not -name 'Jenkinsfile' \
+            -not -name 'site' \
+            -exec cp -r -t "$DEST" {} +
+        '''
+      }
     }
-  }
 
     stage('Test') {
       steps {
         sh '''
           nohup python3 -m http.server ${PORT} --directory "$DEST" >/tmp/http_${PORT}.log 2>&1 &
-          SRV_PID=$!
+          echo $! > /tmp/http_${PORT}.pid
           sleep 1
           curl -f "http://localhost:${PORT}/" || true
-          kill "$SRV_PID" 2>/dev/null || true
         '''
       }
     }
   }
 
   post {
-    success { echo 'Build OK' }
-    failure { echo 'Build KO' }
-    always  { echo 'Fin du pipeline' }
+    success { echo 'Déploiement terminé avec succès' }
+    failure { echo 'Erreur lors du déploiement' }
+    always  {
+      sh 'test -f "/tmp/http_${PORT}.pid" && kill "$(cat /tmp/http_${PORT}.pid)" 2>/dev/null || true'
+      echo 'Nettoyage effectué'
+    }
   }
 }
+
