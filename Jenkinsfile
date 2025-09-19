@@ -24,14 +24,16 @@ pipeline {
     steps {
       sh '''
         rm -rf "$DEST" && mkdir -p "$DEST"
-        rsync -a --delete \
-          --exclude 'Jenkinsfile' \
-          --exclude 'site' \
-          --exclude 'site.backup' \
-          ./ "$DEST"/
+        # copy everything at repo root except the Jenkinsfile and our working folders
+        find . -maxdepth 1 -mindepth 1 \
+          -not -name 'Jenkinsfile' \
+          -not -name 'site' \
+          -not -name 'site.backup' \
+          -exec cp -r -t "$DEST" {} +
       '''
     }
   }
+
 
     stage('Test') {
       steps {
