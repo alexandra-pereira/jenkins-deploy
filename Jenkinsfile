@@ -2,9 +2,8 @@ pipeline {
   agent any
 
   environment {
-    DEST = "${WORKSPACE}/site"       
-    BACKUP = "${WORKSPACE}/site.backup"
-    PORT = "8000"                   
+    DEST = "${WORKSPACE}/site"
+    PORT = "8000"
   }
 
   stages {
@@ -14,50 +13,31 @@ pipeline {
       }
     }
 
-    stage('Backup') {
+    stage('Deploy') {
       steps {
-        sh 'test -d "$DEST" && cp -r "$DEST" "$BACKUP" || true'
+        sh '''
+          rm -rf "$DEST" && mkdir -p "$DEST"
+          # copy everything at repo root except the Jenkinsfile itself
+          find . -maxdepth 1 -mindepth 1 \
+            -not -name 'Jenkinsfile' \
+            -exec cp -r -t "$DEST" {} +
+        '''
       }
     }
-
-  stage('Deploy') {
-    steps {
-      sh '''
-        rm -rf "$DEST" && mkdir -p "$DEST"
-        # copy everything at repo root except the Jenkinsfile and our working folders
-        find . -maxdepth 1 -mindepth 1 \
-          -not -name 'Jenkinsfile' \
-          -not -name 'site' \
-          -not -name 'site.backup' \
-          -exec cp -r -t "$DEST" {} +
-      '''
-    }
-  }
-
 
     stage('Test') {
       steps {
         sh '''
-          pkill -f "http.server ${PORT}" || true
+          # start a temporary HTTP server just for this test
           nohup python3 -m http.server ${PORT} --directory "$DEST" >/tmp/http_${PORT}.log 2>&1 &
+          SRV_PID=$!
           sleep 1
+          # allow success even if curl isn't installed on the VM
           curl -f "http://localhost:${PORT}/" || true
+          # stop the temporary server
+          kill "$SRV_PID" 2>/dev/null || true
         '''
       }
-    }
-  }
-
-  post {
-    success {
-      echo 'Déploiement réussi du site web statique'
-    }
-    failure {
-      echo 'Erreur lors du déploiement'
-    }
-    always {
-      sh 'pkill -f "http.server ${PORT}" || true'
-      sh 'rm -rf "$BACKUP" || true'
-      echo 'Nettoyage effectué'
     }
   }
 }
