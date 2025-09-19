@@ -13,17 +13,19 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
-      steps {
-        sh '''
-          rm -rf "$DEST" && mkdir -p "$DEST"
-          # équivalent safe de: cp -r * /destination/
-          find . -maxdepth 1 -mindepth 1 \
-            -not -name 'Jenkinsfile' \
-            -exec cp -r -t "$DEST" {} +
-        '''
-      }
+  stage('Deploy') {
+    steps {
+      sh '''
+        rm -rf "$DEST" && mkdir -p "$DEST"
+        # équivalent de: cp -r * /destination/
+        # mais on exclut le Jenkinsfile et le dossier site pour éviter la récursion
+        find . -maxdepth 1 -mindepth 1 \
+          -not -name 'Jenkinsfile' \
+          -not -name 'site' \
+          -exec cp -r -t "$DEST" {} +
+      '''
     }
+  }
 
     stage('Test') {
       steps {
