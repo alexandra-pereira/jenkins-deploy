@@ -2,8 +2,9 @@ pipeline {
   agent any
 
   environment {
-    DEST = "${WORKSPACE}/site"
-    PORT = "8000"
+    DEST   = "${WORKSPACE}/site"
+    BACKUP = "${WORKSPACE}/site.backup"
+    PORT   = "8000"
   }
 
   stages {
@@ -13,14 +14,20 @@ pipeline {
       }
     }
 
+    stage('Backup') {
+      steps {
+        sh 'test -d "$DEST" && cp -r "$DEST" "$BACKUP" || true'
+      }
+    }
+
     stage('Deploy') {
       steps {
         sh '''
           rm -rf "$DEST" && mkdir -p "$DEST"
-          # équivalent de: cp -r * /destination/ (en évitant la récursion)
           find . -maxdepth 1 -mindepth 1 \
             -not -name 'Jenkinsfile' \
             -not -name 'site' \
+            -not -name 'site.backup' \
             -exec cp -r -t "$DEST" {} +
         '''
       }
@@ -43,8 +50,8 @@ pipeline {
     failure { echo 'Erreur lors du déploiement' }
     always  {
       sh 'test -f "/tmp/http_${PORT}.pid" && kill "$(cat /tmp/http_${PORT}.pid)" 2>/dev/null || true'
+      sh 'rm -rf "$BACKUP" || true'
       echo 'Nettoyage effectué'
     }
   }
 }
-
