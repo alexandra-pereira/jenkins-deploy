@@ -20,13 +20,18 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
-      steps {
-        sh 'rm -rf "$DEST" && mkdir -p "$DEST"'
-        sh 'cp -r * "$DEST"/'
-        sh 'rm -f "$DEST"/Jenkinsfile || true'
-      }
+  stage('Deploy') {
+    steps {
+      sh '''
+        rm -rf "$DEST" && mkdir -p "$DEST"
+        rsync -a --delete \
+          --exclude 'Jenkinsfile' \
+          --exclude 'site' \
+          --exclude 'site.backup' \
+          ./ "$DEST"/
+      '''
     }
+  }
 
     stage('Test') {
       steps {
